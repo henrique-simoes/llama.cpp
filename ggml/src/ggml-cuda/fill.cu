@@ -22,6 +22,9 @@ void ggml_cuda_op_fill(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
     memcpy(&value, dst->op_params, sizeof(float));
 
     const int64_t k = ggml_nelements(dst);
+    if (k == 0) {
+        return; // multivac patch: zero-sized views (no recurrent state to clear) must stay a no-op
+    }
     const int64_t num_blocks = (k + CUDA_FILL_BLOCK_SIZE - 1) / CUDA_FILL_BLOCK_SIZE;
 
     switch (dst->type) {
