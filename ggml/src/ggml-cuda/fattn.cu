@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <algorithm>
 #include "common.cuh"
 #include "fattn-common.cuh"
 #include "fattn-mma-f16.cuh"
@@ -648,7 +650,15 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
                 }
             } else {
                 if (cc >= GGML_CUDA_CC_ADA_LOVELACE) {
-                    if (Q->ne[1] <= 2) {
+                    // multivac patch: with a quantized KV cache the vector kernel reads the cache directly,
+                    // while the MMA kernel first converts the whole cache of the layer to f16. The largest
+                    // batch that still takes the vector kernel is 2 upstream; GGML_CUDA_FATTN_VEC_MAX_BATCH
+                    // raises it (speculative checks are batches of draft depth + 1).
+                    static const int64_t vec_max_batch = [] {
+                        const char * env = getenv("GGML_CUDA_FATTN_VEC_MAX_BATCH");
+                        return env ? std::max<int64_t>(1, atoll(env)) : 2;
+                    }();
+                    if (Q->ne[1] <= vec_max_batch) {
                         return BEST_FATTN_KERNEL_VEC;
                     }
                 } else {
