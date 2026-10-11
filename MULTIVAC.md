@@ -6,7 +6,7 @@ This branch (`mv/dflash-tp`) carries a hand port of upstream pull request
 b11552 (`23b0202a1`). The design and nearly all of the code are the PR author's. The port only
 carries it forward to a newer tree and reports what it does on one machine.
 
-It is a private working branch for one machine. It is not proposed upstream.
+It is a working branch for one machine. It is not proposed upstream.
 
 ## What was ported, and from where
 
