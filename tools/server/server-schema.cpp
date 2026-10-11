@@ -195,11 +195,13 @@ std::vector<std::unique_ptr<field>> make_llama_cmpl_schema(const common_params &
     //
 
     // TODO: to keep things simple, we disable speculative parameter adjustments for now
-#if 0
-    // TODO: for now, be able to adjust only the draft-model based speculative parameters
+    // multivac patch: "speculative.n_max" alone is enabled; server_slot::get_n_draft_max() applies it
     add((new field_num("speculative.n_max", params.speculative.draft.n_max))
         ->set_hard_limits(0, INT32_MAX)
         ->set_desc("Maximum number of tokens to draft during speculative decoding"));
+
+#if 0
+    // TODO: for now, be able to adjust only the draft-model based speculative parameters
 
     add((new field_num("speculative.n_min", params.speculative.draft.n_min))
         ->set_hard_limits(0, INT32_MAX)

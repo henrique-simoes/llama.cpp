@@ -530,6 +530,10 @@ struct server_slot {
             n_draft_max = std::min(n_draft_max, n_remaining() - 1);
         }
 
+        // multivac patch: a request may lower the draft depth ("speculative.n_max", 0 = no draft for this
+        // request). It can never exceed the depth the server was loaded with.
+        n_draft_max = std::min(n_draft_max, std::max(0, task->params.speculative.draft.n_max));
+
         SLT_DBG(*this, "max possible draft: %d\n", n_draft_max);
 
         return n_draft_max;
