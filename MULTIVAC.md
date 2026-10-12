@@ -8,6 +8,9 @@ carries it forward to a newer tree and reports what it does on one machine.
 
 It is a working branch for one machine. It is not proposed upstream.
 
+Status: since 2026-10-12 configuration C below (tensor split, DFlash2 depth 7, two slots) is what
+that machine serves by default.
+
 ## What was ported, and from where
 
 | | |

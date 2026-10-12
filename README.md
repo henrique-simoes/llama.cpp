@@ -1,3 +1,54 @@
+# llama.cpp fork: DFlash2 speculative decoding with `--split-mode tensor` (multi-GPU)
+
+> **What this fork is.** [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) at build b11552 plus a
+> small patch set that lets the **DFlash2 draft model run while the target model is split across GPUs in
+> tensor mode** (`-sm tensor`). Upstream aborts at load with this combination. The fix is a hand port of
+> upstream pull request [#27858](https://github.com/ggml-org/llama.cpp/pull/27858) by
+> [@art-den](https://github.com/art-den) to a newer tree; the design and nearly all of the code are theirs.
+> This is a working branch for one machine, not an official llama.cpp release and not proposed upstream.
+
+**Who it is for:** anyone running a large model on two or more NVIDIA GPUs with `llama-server`, who wants
+both the tensor split (all cards work on every layer) and the DFlash2 block drafter at the same time.
+
+**Measured result** (Qwen3.8-27B `UD-Q4_K_XL`, 2 × RTX 5060 Ti 16 GB, 262,144-token context, 8-bit KV
+cache, decode in tokens per second, code task / prose task):
+
+| Context depth | Upstream-style layer split + DFlash2 | Tensor split + MTP | **This branch: tensor split + DFlash2** |
+|---|---|---|---|
+| 4K | 70.5 / 40.9 | 62.7 / 45.0 | **84.2 / 53.9** |
+| 32K | 66.1 / 38.1 | 56.2 / 44.7 | **83.8 / 50.6** |
+| 128K | 37.4 / 26.2 | 40.9 / 29.3 | **61.4 / 35.2** |
+| 230K | 24.6 / 16.5 | 30.8 / 23.6 | **41.9 / 31.1** |
+
+Output check: the target model's log-probabilities match the layer-split server within the preset limit
+(mean KL 0.0013) and are bit-identical to tensor split + MTP on the probes.
+
+**What differs from upstream llama.cpp**
+
+| Change | Why | Upstream reference |
+|---|---|---|
+| DFlash2 candidate selector runs on the CPU when the output matrix is split across GPUs | makes `--spec-type draft-dflash` work with `-sm tensor` | PR #27858 (open), ported here |
+| Recurrent state of a new sequence is cleared with a fill instead of a multiply by zero | NaN × 0 is NaN; one bad state otherwise poisons every later request | issue #29830 |
+| A request may lower the draft depth with `speculative.n_max` | per-request draft depth for measurements | field exists upstream but is disabled |
+| Docker build uses `-j6` | local build setting | — |
+
+**How to use it**
+
+```
+docker build -f .devops/cuda.Dockerfile --target server -t llamacpp-dflash2-tensor .
+
+GGML_CUDA_ALLREDUCE=internal llama-server -m <target>.gguf -ngl 99 -sm tensor -fit off -c 262144 \
+  -fa on -ctk q8_0 -ctv q8_0 --spec-type draft-dflash -md <dflash2-draft>.gguf -ngld 99 --spec-draft-n-max 7
+```
+
+Do not pin the drafter to one GPU (`-devd`): it must inherit the tensor split, otherwise the server aborts
+at load. Full details, method, all numbers, tests and limits: **[MULTIVAC.md](MULTIVAC.md)**.
+
+Branches: `mv/dflash-tp` (this one, default) holds everything above; `mv/base`, `mv/fill`, `mv/reqdraft`
+are its steps; `master` follows upstream. The original llama.cpp README follows unchanged.
+
+---
+
 # llama.cpp
 
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
